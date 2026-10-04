@@ -79,19 +79,29 @@ import {
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
+import { limitCounts, syncStationsToOrders } from '@/api/dispatch-service'
 import type { EntryRow } from '@/data/types'
 
 const meta = moduleMeta('station')
-const columns = ["电站编号", "电站名称", "装机容量", "并网电压等级", "投运日期", "所在区域", "运维负责人", "电站状态"]
+const columns = ["电站编号", "电站名称", "装机容量", "并网电压等级", "投运日期", "所在区域", "运维负责人", "电站状态", "限电依据", "调度台账记录"]
 const actions = ["确认投运", "登记限电", "申请停运检修"]
 const statuses = ["待投运", "运行中", "限电运行", "停运检修"]
-const stats = [{"label": "在运电站", "value": 0}, {"label": "装机总容量", "value": 0}, {"label": "限电电站", "value": 0}]
 
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
+
+// 限电电站数以调度指令时段口径为准（与并网调度页同源），台账手工改动会在撤销/同步时自愈。
+const stats = computed(() => [
+  { label: "在运电站", value: rows.value.filter((row) => row.status === '运行中' || row.status === '限电运行').length },
+  {
+    label: "装机总容量",
+    value: rows.value.reduce((sum, row) => sum + (parseFloat(String(row.装机容量 ?? '')) || 0), 0) + 'MW',
+  },
+  { label: "限电电站", value: limitCounts().stationLimitedCount },
+])
 const statusSummary = computed(() =>
   statuses.map((status: string) => ({
     status,
@@ -125,6 +135,8 @@ function runAction(action: string, row: EntryRow) {
 function reload() {
   errorMessage.value = ''
   try {
+    // 台账状态以调度指令时段为准先对齐一遍，避免电站页手工「登记限电」与指令口径脱节。
+    syncStationsToOrders()
     const payload = listEntries(meta.key, filters.value)
     rows.value = payload.items
     total.value = payload.total

@@ -30,6 +30,14 @@ export function listEntries(key: string, filters: Record<string, string> = {}): 
 
 export function runAction(key: string, id: number, action: string): ActionResult {
   const meta = moduleMeta(key)
+  // 调度指令涉及电站台账联动与权限校验，统一走 dispatch-service，
+  // 这里显式拦一道，避免页面绕过撤销链路把指令状态单独改掉。
+  if (key === 'dispatch') {
+    return {
+      ok: false,
+      message: '调度指令动作必须在详情面板办理（撤销链路联动电站台账），不支持通用状态流转',
+    }
+  }
   const target = meta.actionTargets[action]
   if (!target) {
     return { ok: false, message: `${meta.entity}没有登记「${action}」这个动作` }
