@@ -78,6 +78,7 @@ import {
   listEntries,
   moduleMeta,
   runAction as applyAction,
+  stationSummary,
 } from '@/api/local-service'
 import type { EntryRow } from '@/data/types'
 
@@ -85,9 +86,9 @@ const meta = moduleMeta('station')
 const columns = ["电站编号", "电站名称", "装机容量", "并网电压等级", "投运日期", "所在区域", "运维负责人", "电站状态"]
 const actions = ["确认投运", "登记限电", "申请停运检修"]
 const statuses = ["待投运", "运行中", "限电运行", "停运检修"]
-const stats = [{"label": "在运电站", "value": 0}, {"label": "装机总容量", "value": 0}, {"label": "限电电站", "value": 0}]
 
 const rows = ref<EntryRow[]>([])
+const stats = ref<{ label: string; value: string | number }[]>([])
 const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
@@ -128,6 +129,7 @@ function reload() {
     const payload = listEntries(meta.key, filters.value)
     rows.value = payload.items
     total.value = payload.total
+    stats.value = stationSummary()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '电站台账列表读取失败'
   }

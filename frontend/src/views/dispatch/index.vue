@@ -65,8 +65,43 @@
 
     <footer class="page-foot">
       <span>共 {{ total }} 条并网调度记录</span>
+      <span v-if="infoMessage" class="info-text">{{ infoMessage }}</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
+
+    <div v-if="showCreate" class="modal-mask" @click.self="showCreate = false">
+      <form class="modal-card" @submit.prevent="submitCreate">
+        <h3>登记调度指令</h3>
+        <label>
+          <span>电站编号（本电站）</span>
+          <input v-model="createForm.电站编号" disabled />
+        </label>
+        <label>
+          <span>调度机构</span>
+          <input v-model="createForm.调度机构" placeholder="如：省调中心" />
+        </label>
+        <label>
+          <span>指令类型</span>
+          <select v-model="createForm.指令类型">
+            <option value="限电">限电</option>
+            <option value="发电计划">发电计划</option>
+            <option value="检修配合">检修配合</option>
+          </select>
+        </label>
+        <label>
+          <span>限电负荷</span>
+          <input v-model="createForm.限电负荷" placeholder="如：30MW" />
+        </label>
+        <label>
+          <span>生效时段</span>
+          <input v-model="createForm.生效时段" placeholder="如：2026-10-06 08:00-12:00" />
+        </label>
+        <div class="modal-actions">
+          <button class="btn ghost" type="button" @click="showCreate = false">取消</button>
+          <button class="btn primary" type="submit">登记</button>
+        </div>
+      </form>
+    </div>
   </section>
 </template>
 
@@ -74,22 +109,27 @@
 import { computed, onMounted, ref } from 'vue'
 
 import {
+  createDispatchEntry,
+  dispatchSummary,
   downloadEntries,
   listEntries,
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
 import type { EntryRow } from '@/data/types'
+import { useSessionStore } from '@/stores/session'
 
 const meta = moduleMeta('dispatch')
-const columns = ["指令编号", "调度机构", "指令类型", "限电负荷", "生效时段", "执行人员", "执行结果", "指令状态"]
+const session = useSessionStore()
+const columns = ["指令编号", "电站编号", "调度机构", "指令类型", "限电负荷", "生效时段", "执行人员", "执行结果", "指令状态"]
 const actions = ["开始执行", "确认执行", "撤销指令"]
 const statuses = ["待执行", "执行中", "已执行", "已撤销"]
-const stats = [{"label": "待执行指令", "value": 0}, {"label": "执行中指令", "value": 0}, {"label": "本月限电次数", "value": 0}]
 
 const rows = ref<EntryRow[]>([])
+const stats = ref<{ label: string; value: string | number }[]>([])
 const total = ref(0)
 const errorMessage = ref('')
+const infoMessage = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
 const statusSummary = computed(() =>
@@ -98,6 +138,20 @@ const statusSummary = computed(() =>
     count: rows.value.filter((row) => String(row.status) === status).length,
   })),
 )
+
+const showCreate = ref(false)
+const emptyCreateForm = () => ({
+  电站编号: session.station,
+  调度机构: '',
+  指令类型: '限电',
+  限电负荷: '',
+  生效时段: '',
+})
+const createForm = ref(emptyCreateForm())
+
+function operatorInfo() {
+  return { name: session.operator, role: session.role, station: session.station }
+}
 
 function resetFilters() {
   filters.value = {}
@@ -109,16 +163,34 @@ function exportRows() {
 }
 
 function openCreate() {
-  errorMessage.value = '调度指令登记入口尚未接入审批流'
+  errorMessage.value = ''
+  infoMessage.value = ''
+  createForm.value = emptyCreateForm()
+  showCreate.value = true
 }
 
-function runAction(action: string, row: EntryRow) {
+function submitCreate() {
   errorMessage.value = ''
-  const result = applyAction(meta.key, Number(row.id), action)
+  infoMessage.value = ''
+  const result = createDispatchEntry({ ...createForm.value }, operatorInfo())
   if (!result.ok) {
     errorMessage.value = result.message
     return
   }
+  showCreate.value = false
+  infoMessage.value = result.message
+  reload()
+}
+
+function runAction(action: string, row: EntryRow) {
+  errorMessage.value = ''
+  infoMessage.value = ''
+  const result = applyAction(meta.key, Number(row.id), action, operatorInfo())
+  if (!result.ok) {
+    errorMessage.value = result.message
+    return
+  }
+  infoMessage.value = result.message
   reload()
 }
 
@@ -128,6 +200,7 @@ function reload() {
     const payload = listEntries(meta.key, filters.value)
     rows.value = payload.items
     total.value = payload.total
+    stats.value = dispatchSummary()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '并网调度列表读取失败'
   }

@@ -48,6 +48,16 @@ export function saveRows(key: string, rows: EntryRow[]): void {
   }
 }
 
+// 多模块一次落盘：调用方先把所有模块的新数据算好，这里一次性写进同一份存储，
+// 要么全写进去，要么（调用方校验不过时）一个字节都不动，不写半成品。
+export function saveAllRows(patch: Record<string, EntryRow[]>): void {
+  const next = { ...allRows(), ...patch }
+  cache = next
+  if (typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  }
+}
+
 export function resetRows(key: string): EntryRow[] {
   const rows = clone(SEED_ROWS[key] ?? [])
   saveRows(key, rows)

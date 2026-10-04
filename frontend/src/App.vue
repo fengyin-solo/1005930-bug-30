@@ -11,7 +11,7 @@
     <main class="app-main">
       <header class="app-head">
         <span class="head-desc">面向电站台账、组串阵列、逆变器、汇流箱、跟踪支架、组件清洗、告警处置与发电结算的一体化光伏电站运行维护工作台。</span>
-        <span class="head-user">当前值班：{{ store.operator }} · {{ store.shiftLabel }}</span>
+        <span class="head-user">当前值班：{{ store.operator }}（{{ store.role }} · {{ store.station }}） · {{ store.shiftLabel }}</span>
       </header>
       <RouterView />
     </main>

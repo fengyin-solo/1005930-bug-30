@@ -3,6 +3,8 @@ import { defineStore } from 'pinia'
 export const useSessionStore = defineStore('session', {
   state: () => ({
     operator: '值班管理员',
+    role: '值班长',
+    station: 'STAT-0001',
     shiftLabel: '白班 08:00-20:00',
     scope: '光伏电站运行维护管理平台',
   }),

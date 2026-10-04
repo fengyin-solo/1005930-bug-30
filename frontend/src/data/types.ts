@@ -18,6 +18,15 @@ export type ModuleMeta = {
   actions: string[]
   actionTargets: Record<string, string>
   metrics: string[]
+  /** 终态清单：落到这些状态就不算待办。缺省取 statuses 最后一项。 */
+  terminalStatuses?: string[]
+}
+
+/** 当前值班人员：动作鉴权与执行人落笔都靠它。 */
+export type OperatorInfo = {
+  name: string
+  role: string
+  station: string
 }
 
 export type PageResult = {
